@@ -1,6 +1,12 @@
+from pathlib import Path
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+
+# -----------------------------------------------------------------------------
+# BASE DIRECTORY RESOLUTION (Fixes FileNotFoundError on Streamlit Cloud)
+# -----------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent
 
 # Clear cache to force reload of edited CSV files
 st.cache_data.clear()
@@ -51,7 +57,7 @@ st.markdown("""
 @st.cache_data
 def load_and_clean_data():
     # World Bank total data
-    df = pd.read_csv("total_data.csv")
+    df = pd.read_csv(BASE_DIR / "total_data.csv")
     df["Year"] = pd.to_datetime(df["Year"])
 
     # Standardize FDI Column
@@ -66,7 +72,7 @@ def load_and_clean_data():
         df["FDI (net inflows in USD Bn)"] = 0.0
 
     # Sectorwise employment
-    sectorwise_emp = pd.read_csv("Employment share data.csv").dropna()
+    sectorwise_emp = pd.read_csv(BASE_DIR / "Employment share data.csv").dropna()
     sectorwise_emp = sectorwise_emp.replace("%", "", regex=True)
 
     non_sector_cols = ["Period", "Start_Date", "as_of_date", "date", "Year"]
@@ -81,7 +87,7 @@ def load_and_clean_data():
     sectorwise_emp["Start_Date"] = sectorwise_emp["Period"].apply(parse_period_to_date)
 
     # MSME employment
-    msme_emp_df = pd.read_csv("MSME employment data.csv")
+    msme_emp_df = pd.read_csv(BASE_DIR / "MSME employment data.csv")
     msme_emp_df["Total employees working in MSMEs registered on Udyam portal"] = (
         msme_emp_df["Total employees working in MSMEs registered on Udyam portal"]
         .astype(str)
@@ -91,7 +97,7 @@ def load_and_clean_data():
     msme_emp_df["Start_Date"] = msme_emp_df["Period"].apply(parse_period_to_date)
 
     # Non-food credit
-    non_food_credit = pd.read_csv("Food & Non-Food Credit of Scheduled Commercial Banks.csv")
+    non_food_credit = pd.read_csv(BASE_DIR / "Food & Non-Food Credit of Scheduled Commercial Banks.csv")
     non_food_credit["date"] = pd.to_datetime(non_food_credit["Fortnight Date Final"], errors="coerce")
     for col in ["Bank Credit", "Food Credit"]:
         if col in non_food_credit.columns:
@@ -131,14 +137,13 @@ def load_and_clean_data():
         })
 
     # Repo rates
-    repo_rates = pd.read_csv("Repo rates.csv").dropna()
+    repo_rates = pd.read_csv(BASE_DIR / "Repo rates.csv").dropna()
     repo_rates["Dates"] = pd.to_datetime(repo_rates["Dates"], errors="coerce")
 
     # NPAs Data Clean-up
-    NPAs = pd.read_csv("NPAs.csv").dropna()
+    NPAs = pd.read_csv(BASE_DIR / "NPAs.csv").dropna()
     npa_date_col = NPAs.columns[0]
 
-    # Identify percentage column
     val_cols = [c for c in NPAs.columns if c != npa_date_col]
     if val_cols:
         target_col = val_cols[0]
@@ -155,7 +160,7 @@ def load_and_clean_data():
     NPAs["Year"] = pd.to_datetime(extracted_years + "-01-01", errors="coerce")
 
     # Market Cap
-    market_cap = pd.read_csv("Market Capitalisations.csv")
+    market_cap = pd.read_csv(BASE_DIR / "Market Capitalisations.csv")
     market_cap["End-period"] = pd.to_datetime(market_cap["End-period"], format="%b-%y", errors="coerce")
 
     return df, df_savings, sectorwise_emp, msme_emp_df, fy_end_nfc, repo_rates, NPAs, market_cap
@@ -370,7 +375,6 @@ elif page == "Savings and investments":
         fig = px.line(plot_data, x="TIME_PERIOD", y="value", markers=True)
         fig.update_xaxes(title_text="Year")
         fig.update_yaxes(title_text="Percentage of GDP")
-
         style_chart(fig, plot_data, "TIME_PERIOD", "%Y", height=450, legend_bottom=False)
         st.plotly_chart(fig, use_container_width=True)
         render_source("International Monetary Fund (IMF), World Economic Outlook (WEO)")
@@ -379,18 +383,18 @@ elif page == "Savings and investments":
         st.subheader("b. Market Cap of Listed Companies")
         m_cols = [c for c in f_mcap.columns if "Market Capitalisation" in c]
 
-        updated_df=pd.read_csv('Market Capitalisation - NSE.csv')
-        updated_df['End-period']=pd.to_datetime(updated_df['End-period'])
-        #plot_data = f_mcap.dropna(subset=m_cols).copy()
-        plot_data=updated_df
+        try:
+            updated_df = pd.read_csv(BASE_DIR / 'Market Capitalisation - NSE.csv')
+            updated_df['End-period'] = pd.to_datetime(updated_df['End-period'])
+            plot_data = updated_df
+            y_val_col = "NSE Market Capitalisation (₹)" if "NSE Market Capitalisation (₹)" in plot_data.columns else plot_data.columns[1]
+        except Exception:
+            plot_data = f_mcap.dropna(subset=m_cols).copy()
+            y_val_col = m_cols[0] if m_cols else plot_data.columns[1]
 
-        fig = px.line(plot_data, x="End-period", y="NSE Market Capitalisation (₹)")
+        fig = px.line(plot_data, x="End-period", y=y_val_col)
         style_chart(fig, plot_data, "End-period", "%b %Y", height=450, legend_bottom=True)
-
         fig.update_yaxes(exponentformat="none", tickformat=",")
-
-        #style_chart(fig, plot_data, height=450, legend_bottom=True)
-
         st.plotly_chart(fig, use_container_width=True)
         render_source("Reserve Bank of India Database on Indian Economy (DBIE)")
 
