@@ -215,10 +215,10 @@ def load_and_clean_data():
         NPAs = pd.DataFrame()
 
     # 8. Market Cap Data
-    mcap_csv = BASE_DIR / "Market Capitalisations.csv"
+    mcap_csv = BASE_DIR / "Market Capitalisation - NSE.csv"
     if mcap_csv.exists():
         market_cap = pd.read_csv(mcap_csv)
-        market_cap["End-period"] = pd.to_datetime(market_cap["End-period"], format="%b-%y", errors="coerce")
+        market_cap["End-period"] = pd.to_datetime(market_cap["End-period"])#, format="%b-%y", errors="coerce")
     else:
         market_cap = pd.DataFrame()
 
@@ -430,12 +430,14 @@ elif page == "Savings and investments":
 
     with c2:
         st.subheader("b. Market Cap of Listed Companies")
-        m_cols = [c for c in f_mcap.columns if "Market Capitalisation" in c] if not f_mcap.empty else []
+        m_cols = [c for c in f_mcap.columns if "Market Capitalisation - NSE" in c] if not f_mcap.empty else []
         plot_data = f_mcap.dropna(subset=m_cols).copy() if m_cols else pd.DataFrame()
         if not plot_data.empty:
             fig = px.line(plot_data, x="End-period", y=m_cols)
-            style_chart(fig, plot_data, "End-period", "%b %Y", height=450, legend_bottom=True)
+            style_chart(fig, plot_data, "End-period", "%b %Y", height=450)
             fig.update_yaxes(exponentformat="none", tickformat=",")
+            fig.update_xaxes(title_text="Period")
+            fig.update_yaxes(title_text="NSE Market Capitalisation (₹)")
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No market cap data available.")
